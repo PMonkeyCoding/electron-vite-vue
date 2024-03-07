@@ -2,6 +2,13 @@ import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { release } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import ipc from '../ipc'
+// import { SerialPort } from 'serialport'
+// const { app, BrowserWindow, shell, ipcMain } = require('electron')
+// const { release } = require('node:os')
+// const { join, dirname } = require('node:path')
+// const { fileURLToPath } = require('node:url')
+
 
 globalThis.__filename = fileURLToPath(import.meta.url)
 globalThis.__dirname = dirname(__filename)
@@ -40,14 +47,16 @@ if (!app.requestSingleInstanceLock()) {
 
 let win: BrowserWindow | null = null
 // Here, you can also use other preload
-const preload = join(__dirname, '../preload/index.mjs')
+const preload = join(__dirname, '../preload/index.js')
 const url = process.env.VITE_DEV_SERVER_URL
 const indexHtml = join(process.env.DIST, 'index.html')
 
 async function createWindow() {
   win = new BrowserWindow({
-    title: 'Main window',
-    icon: join(process.env.VITE_PUBLIC, 'favicon.ico'),
+    height:720,
+    width:1080,
+    title: '行程测量仪',
+    icon: join(process.env.VITE_PUBLIC, './public/favicon.ico'),
     webPreferences: {
       preload,
       // Warning: Enable nodeIntegration and disable contextIsolation is not secure in production
@@ -80,7 +89,11 @@ async function createWindow() {
   // win.webContents.on('will-navigate', (event, url) => { }) #344
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(async()=>{
+  createWindow()
+  // listSerialPorts()
+  await ipc.registerIPCEvent()
+})
 
 app.on('window-all-closed', () => {
   win = null
@@ -103,9 +116,26 @@ app.on('activate', () => {
     createWindow()
   }
 })
+// async function listSerialPorts() {
+//   console.log('11111');
+  
+//   await SerialPort.list().then((ports, err) => {
+//     if(err) {
+//       console.log(err.message)
+//       return
+//     } else {
+//       console.log('nothing')
+//     }
+//     console.log('ports', ports);
 
+//     if (ports.length === 0) {
+//       console.log('No ports discovered');
+//     }
+//   })
+// }
 // New window example arg: new windows url
 ipcMain.handle('open-win', (_, arg) => {
+  console.log('open-win');
   const childWindow = new BrowserWindow({
     webPreferences: {
       preload,
@@ -113,7 +143,6 @@ ipcMain.handle('open-win', (_, arg) => {
       contextIsolation: false,
     },
   })
-
   if (process.env.VITE_DEV_SERVER_URL) {
     childWindow.loadURL(`${url}#${arg}`)
   } else {

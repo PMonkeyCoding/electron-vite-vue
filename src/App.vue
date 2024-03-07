@@ -1,41 +1,36 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
+import Detail from './components/Detail.vue';
+// const msg = "请选择获取数据的方式"
 </script>
 
 <template>
-  <div>
-    <a href="https://www.electronjs.org/" target="_blank">
-      <img src="./assets/electron.svg" class="logo electron" alt="Electron logo" />
+  <!-- <div>
+    <a href="https://shero.plus/" target="_blank">
+      <img src="./assets/favicon.ico" class="logo" alt="Shero logo" />
     </a>
-    <a href="https://vitejs.dev/" target="_blank">
-      <img src="./assets/vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
-  </div>
-  <HelloWorld msg="Electron + Vite + Vue" />
-  <div class="flex-center">
-    Place static files into the <code>/public</code> folder
-    <img style="width: 2.4em; margin-left: .4em;" src="/logo.svg" alt="Logo">
-  </div>
+  </div> -->
+  <Detail />
+  <!-- <div class="flex-center">
+     Place static files into the <code>/public</code> folder
+    <img style="width: 2.4em; margin-left: .4em;" src="../public/favicon.ico" alt="Logo">
+  </div> -->
 </template>
 
 <style>
-.flex-center {
+/* .flex-center {
   display: flex;
   align-items: center;
   justify-content: center;
-}
+} */
 
-.logo {
+/* .logo {
   height: 6em;
   padding: 1.5em;
   will-change: filter;
   transition: filter 300ms;
-}
+} */
 
-.logo.electron:hover {
+/* .logo.electron:hover {
   filter: drop-shadow(0 0 2em #9FEAF9);
 }
 
@@ -45,5 +40,5 @@ import HelloWorld from './components/HelloWorld.vue'
 
 .logo.vue:hover {
   filter: drop-shadow(0 0 2em #42b883aa);
-}
+} */
 </style>

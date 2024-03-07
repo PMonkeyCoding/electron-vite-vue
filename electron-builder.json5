@@ -3,9 +3,9 @@
  */
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "YourAppID",
+  "appId": "com.shero.plus",
   "asar": true,
-  "productName": "YourAppName",
+  "productName": "行程测量仪",
   "directories": {
     "output": "release/${version}"
   },
@@ -28,11 +28,14 @@
         ]
       }
     ],
+    "icon": "./public/favicon.ico",
     "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
   },
   "nsis": {
     "oneClick": false,
     "perMachine": false,
+    "installerIcon": "./public/favicon.ico",
+    installerHeaderIcon: "./public/favicon.ico",
     "allowToChangeInstallationDirectory": true,
     "deleteAppDataOnUninstall": false
   },
