@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import { onBeforeMount, ref, reactive, onMounted } from 'vue';
+import {  ref, reactive, onMounted, onUnmounted } from 'vue';
 import { IpcEvents } from '../../electron/ipcEvents';
 import useIpcRendererOn from "../hook/useIpcRendererOn";
-import { Refresh } from '@element-plus/icons-vue';
+import { Refresh, Upload, Download } from '@element-plus/icons-vue';
+import { exportExcel } from './export/export' //'./export/exportExcel'
+import { isFunction } from './export/utils'
 // import { ElMessage } from 'element-plus'
-import { excelList } from "../config";
-
 import { ElMessage } from 'element-plus';
-import * as XLSX from 'xlsx'
 import LuckyExcel from "luckyexcel"
 
+const currentLuckySheet = window?.luckysheet
+const currentRecv = ref('')
 // const props = defineProps(['msg'])
 // onBeforeMount(() => {
 //   msg.value = props.msg || ''
 // })
 const dialogVisible = ref(false)//弹窗是否可见
 const btnDisable = ref(false)//按钮是否可用
-
 interface PortInfo {
   path: string;
   manufacturer: string | undefined;
@@ -36,9 +36,8 @@ const importFile = (()=>{
   upload.title = "模板文件导入";
 })
 const ExportFile = ()=>{
-  let data = window.luckysheet.toJson()
-  console.log('看看ExportFile结果',data);
-  
+  let data = currentLuckySheet?.toJson()
+  exportExcel(currentLuckySheet.getluckysheetfile(),data.name)
 }
 /*** 导入模板文件 */
 const upload = reactive({
@@ -55,17 +54,19 @@ const handleExceed = () => {
 }
 /** 点击确认的二次校验 */
 function submitFileForm() {
-   let data = {}
   //  data['rows'] = currentUpFileData
-  console.log('tmpFile',tmpFile);
   if(tmpFile){
-    window.luckysheet.destroy();
-    console.log('tmpUpFileData',tmpUpFileData);
-    console.log('tmpFile',tmpFile);
-    sheetOption.data = tmpUpFileData.sheets
-    sheetOption.name = getFileName(tmpFile.name)
-    console.log('sheetOption',sheetOption);
-    window.luckysheet.create(sheetOption)
+    isFunction(currentLuckySheet?.destroy) && currentLuckySheet?.destroy();
+    currentLuckySheet.create({
+      container: 'luckysheet',
+      lang:'zh',
+      data:tmpUpFileData.sheets,
+      title:getFileName(tmpFile.name),
+      name:getFileName(tmpFile.name),
+      showinfobar: false,
+      showstatisticBar: false,
+      userInfo:'XR-TECH'
+    })
     upload.open = false
   }else{
     ElMessage.error('文件解析出错，请重试')
@@ -77,21 +78,16 @@ const getFileName = (name)=>{
   let suffixArray = name.split('.')
   return suffixArray['0'] || '未命名'
 }
-let currentUpFileData;
 let tmpUpFileData;
-let currentFile;
 let tmpFile;
 /**选择的文件发生变化时 */
 const handleChange = (uploadFile) => {
    // 读取表格数据
-   console.log('uploadFile',uploadFile)
    tmpUpFileData = undefined
    tmpFile = undefined
-  //  fs.readFile(uploadFile, function(err, data) {
-  //   if (err) throw err;
     LuckyExcel.transformExcelToLucky(uploadFile.raw, (luckyJson, _)=>{
-      console.log('这里解析完了 转为luckysheet格式');
       console.log('luckyJson',luckyJson);
+      
       if(luckyJson.sheets==null || luckyJson.sheets.length==0){
         ElMessage.error('数据解析错误，请重新上传')
           return;
@@ -100,104 +96,45 @@ const handleChange = (uploadFile) => {
         tmpFile = uploadFile
       }
     });
-  //  })
-  //  LuckyExcel.transformExcelToLucky(uploadFile,
-  //  (luckyJson,luckySheetFile)=>{
-  //   console.log('这里解析完了 转为luckysheet格式');
-    
-  //   if(luckyJson.sheets==null || luckySheetFile.sheets.length==0){
-  //     ElMessage.error('数据解析错误，请重新上传')
-  //         return;
-  //     }else{
-  //       console.log('luckyJson',luckyJson);
-  //       console.log('luckySheetFile',luckySheetFile);
-  //       tmpUpFileData = luckyJson
-  //       tmpFile = luckySheetFile
-  //     }
-  //  })
-  //  analysisExcel(uploadFile.raw).then((tableJson) => {
-  //   console.log();
-    
-  //   if (tableJson && tableJson.length > 0) {
-  //     tmpFile = uploadFile
-  //     tmpUpFileData = tableJson
-  //   }else{
-  //     ElMessage.error('数据解析错误，请重新上传')
-  //   }
-  // })
 }
-  // analysisExcel(uploadFile.raw).then((tableJson) => {
-   //    if (tableJson && tableJson.length > 0) {
-   //      console.log('tableJson',tableJson);
-   //       //成功解析出数据
-   //       //只取第一个sheet的数据
-   //       let dataExcel = tableJson[0].sheet;
-   //       // LuckyExcel.
-   //       currentUpFileData = [];    //新数组
-   //      //  dataExcel.map(item => {
-   //      //     let obj = {
-   //      //        id: item.id,
-   //      //        name: item['名称'],
-   //      //        level: item['等级'],
-   //      //        judgeType: item['判断类型'],
-   //      //        value: Number(item['阈值']),
-   //      //        reason: item['可能原因'],
-   //      //        method: item['处理方法'],
-   //      //        remark: item['备注'],
-   //      //        disable: item['是否暂停使用'],
-   //      //     }
-   //      //     currentUpFileData.push(obj);
-   //      //  });
-   //    }else{
-   //      ElMessage.info('数据解析错误，请重新上传')
-   //    }
-   // });
-  // };
-//解析excel
-function analysisExcel(file) {
-   return new Promise(function (resolve, reject) {
-      const reader = new FileReader();
-      reader.onload = function (e) {
-         const data = e.target.result;
-         let dataJson = XLSX.read(data, {
-            type: "binary",
-         });
-         const result = [];
-         dataJson.SheetNames.forEach((sheetName) => {
-            result.push({
-               name: sheetName,
-               data: XLSX.utils.sheet_to_json(dataJson.Sheets[sheetName]),
-            });
-         });
-         resolve(result);
-      };
-      reader.readAsBinaryString(file);
-   });
-}
-var sheetOption = {
-                container: 'luckysheet', // 设定DOM容器的id
-                // title:'test',
-                lang:'zh',
-                showtoolbar: true, // 是否显示工具栏
-                showinfobar: false, // 是否显示顶部信息栏
-                showstatisticBar: false, // 是否显示底部计数栏
-                sheetBottomConfig: false, // sheet页下方的添加行按钮和回到顶部按钮配置
-                allowEdit: true, // 是否允许前台编辑
-                enableAddRow: false, // 是否允许增加行
-                enableAddCol: false, // 是否允许增加列
-                sheetFormulaBar: false, // 是否显示公式栏
-                enableAddBackTop: false, //返回头部按钮
-               //  data: exportJson.sheets, //表格内容
-               //  title: exportJson.info.name //表格标题
-              }
+// var sheetOption = {
+//                 container: 'luckysheet', // 设定DOM容器的id
+//                 // title:'test',
+//                 lang:'zh',
+//                 showtoolbar: true, // 是否显示工具栏
+//                 showinfobar: false, // 是否显示顶部信息栏
+//                 showstatisticBar: false, // 是否显示底部计数栏
+//                 sheetBottomConfig: false, // sheet页下方的添加行按钮和回到顶部按钮配置
+//                 allowEdit: true, // 是否允许前台编辑
+//                 enableAddRow: false, // 是否允许增加行
+//                 enableAddCol: false, // 是否允许增加列
+//                 sheetFormulaBar: false, // 是否显示公式栏
+//                 enableAddBackTop: false, //返回头部按钮
+//                //  data: exportJson.sheets, //表格内容
+//                //  title: exportJson.info.name //表格标题
+//               }
+let row;
+let column;
 onMounted(() => {
-  window.luckysheet.create(sheetOption)
+  currentLuckySheet.create({
+    container: 'luckysheet',
+    showinfobar: false,
+    showstatisticBar: false,
+    lang:'zh',
+    userInfo:'XR-TECH',
+    hook: {
+      cellMousedown:function(r,c,oldValue,newValue,isRefresh){
+            row = c.r
+            column = c.c
+          }
+        }
+  } );
 })
 //////////////////////////////////////////////文件上传处理完毕
 /**
- * 0未打开 1已打开 2打开失败 3已关闭 4关闭失败
+ * 0未打开 1打开中 2已打开 3已关闭 
  */
- const current_state = ref(0)
+ const current_state = ref(2)
 /**
  * 当前选择的端口
  */
@@ -206,9 +143,90 @@ const chosePort = ref(undefined)
  * 当前获取到的端口列表
  */
 const portList = ref([])
+/**复制数据 */
+const copyData = (()=>{
+  currentLuckySheet.setcellvalue(row,column,currentLuckySheet.flowdata(), 'abc')
+      currentLuckySheet.refresh()
+        ElMessage.success("填入成功");
+  // copyText(currentRecv.value).then(() => {
+  // }).catch(() => {
+  //     ElMessage.error("复制失败");
+  // })
+})
+/**点击采集按钮 */
+const clickCollect = (data)=>{
+  window.ipcRenderer.invoke(IpcEvents.PORT_SEND, data).then(()=>{
+    portList.value = []
+    btnDisable.value = false
+  }).catch((error)=>{
+    btnDisable.value = false
+  })
+}
+onUnmounted(()=>{
+  if(current_state.value == 2){
+     clickClose()
+  }
+})
+//用来收消息展示
+useIpcRendererOn(IpcEvents.PORT_SHOW, async (_, recv) => {
+  console.log('PORT_SHOW 收到的数据recv：', recv)
+  if(recv.includes('opening') && current_state.value == 1){
+      current_state.value = 2
+      ElMessage.info('串口已打开')
+      return
+  }
+  if(recv == '串口已关闭'){
+      current_state.value = 3
+  }else if(recv == '串口打开成功' || recv == '串口已打开'){
+    current_state.value = 2
+  }
+  console.log('当前状态',current_state.value);
+  
+  ElMessage.info(recv)
+})
+/**
+ * 将文字写入剪切板 
+ * @param {string} text
+ * @returns {Promise} 返回promise对象
+ */
+ const copyText = (text) =>{
+    // 在调用前 先访问是否存在 clipboard 对象
+    if (navigator.clipboard) {
+        return navigator.clipboard.writeText(text)
+    } else {
+        // 不存在使用 老版本API execCommand
+        try {
+            const t = document.createElement('textarea')
+            t.nodeValue = text
+            t.value = text
+            document.body.appendChild(t)
+            t.select()
+            document.execCommand('copy');
+            document.body.removeChild(t)
+            return Promise.resolve()
+        } catch (e) {
+            console.log(e)
+            return Promise.reject(e)
+        }
+    }
+}
 //用来监听渲染进程发送的信息
-useIpcRendererOn(IpcEvents.PORT_RECV, async (_, data) => {
-  console.log('recv', data)
+useIpcRendererOn(IpcEvents.PORT_RECV, async (_, recv) => {
+  console.log('PORT_RECV 收到的数据recv：', recv)
+  currentRecv.value = (parseInt(recv.substring(1,recv.length-1))/100).toFixed(2)
+  // copyText(currentRecv.value)
+  // const data = (parseInt(recv))/100.toFixed(2)
+//   ElMessageBox.confirm('当前采集到的数据为：'+ data, 
+//   '数据确认',{
+//     confirmButtonText: '复制',
+//     cancelButtonText:'关闭',
+//   }).then(()=>{
+//     copyText(data).then(() => {
+//       ElMessage.success("复制成功");
+//   }).catch(() => {
+//     ElMessage.error("复制失败");
+//   })
+//   })
 })
 const clickOpen = (() => {
   //打开串口
@@ -216,21 +234,23 @@ const clickOpen = (() => {
     ElMessage.error('请确认已获取串口')
     return
   }
+  if(current_state.value == 1){
+    ElMessage.error('正在打开串口，请稍等..')
+    return
+  }
+  if(current_state.value == 2){
+    ElMessage.error('串口已打开')
+    return
+  }
+  console.log('123123 current_state',current_state.value);
+  
   btnDisable.value = true
-  window.ipcRenderer.invoke(IpcEvents.PORT_OPEN, JSON.stringify(form.value)).then((qwe)=>{
-    console.log('heeee');
-    
+  current_state.value = 1
+  window.ipcRenderer.invoke(IpcEvents.PORT_OPEN, JSON.stringify(form.value)).then(()=>{
     chosePort.value = form.value.serialPort
-    current_state.value = 3
-    console.log('ipc',qwe);
-    // portList.value = []
-    // if(portList.value.length>0){
-    //   form.serialPort = portList.value[0].productId
-    // }
     btnDisable.value = false
   }).catch(()=>{
     chosePort.value = undefined
-    current_state.value = 4
     ElMessage.error('端口打开失败，请重试')
     btnDisable.value = false
   })
@@ -240,12 +260,10 @@ const clickClose = (()=>{
   chosePort.value = undefined
   btnDisable.value = true
   window.ipcRenderer.invoke(IpcEvents.PORT_CLOSE, '').then((ports)=>{
-    current_state.value = 3
     portList.value = []
     btnDisable.value = false
-  }).catch(()=>{
-    current_state.value = 4
-    ElMessage.error('端口关闭失败，请重试')
+  }).catch((e)=>{
+    ElMessage.error('串口关闭失败，请重试')
     btnDisable.value = false
   })
 })
@@ -256,15 +274,14 @@ const getPortList = ()=>{
   //获取串口列表
   btnDisable.value = true
   window.ipcRenderer.invoke(IpcEvents.GET_PORTS_LIST, '').then((ports)=>{
-    current_state.value = 1
     portList.value = JSON.parse(ports)
     if(portList.value.length>0){
       form.value.serialPort = portList.value[0].path
     }
     btnDisable.value = false
   }).catch(()=>{
-    current_state.value = 2
-    ElMessage.error('打开失败，请重试')
+    current_state.value = 0
+    ElMessage.error('获取串口失败，请重试')
     btnDisable.value = false
   })
 }
@@ -293,7 +310,8 @@ const form = ref({
        
             <el-button type="primary" @click="clickOpen()" :disabled="btnDisable">打开</el-button>
             <el-button type="danger" @click="clickClose()" :disabled="btnDisable">关闭</el-button>
-          <el-button type="warning">采集</el-button>
+          <el-button type="warning"  @click="clickCollect('[R]')" :disabled="btnDisable">采集</el-button>
+          <el-text style="position: absolute;right:0px;" v-if="current_state == 2"   @click="copyData()">当前收到的数据：{{ currentRecv }} <el-icon><Plus /></el-icon></el-text>
            </el-row>
       </el-header>
       <el-main class="container-center">
@@ -311,8 +329,8 @@ const form = ref({
             </el-col>
             <el-col :span=4 style="margin-left:10px" class="align-center"><el-button type="warning" :disabled="btnDisable">导出</el-button></el-col>
         </el-row> -->
-        <el-button type="primary" @click="importFile">导入标准文件</el-button>
-        <el-button type="primary" @click="ExportFile">导出文件</el-button>
+        <el-button type="primary" @click="importFile" :icon="Upload">导入标准文件</el-button>
+        <el-button type="primary" @click="ExportFile" :icon="Download">导出文件</el-button>
         <div class="main-container" id="luckysheet" >
         </div>
         </el-main>

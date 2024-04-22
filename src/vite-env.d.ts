@@ -30,12 +30,11 @@ declare module '*.vue' {
   const component: DefineComponent<{}, {}, any>
   export default component
 }
-// interface Window {
-//   luckysheet:any
-// }
+interface Window {
+  luckysheet:any
+}
 declare module 'luckyexcel'
-
 // Used in Renderer process, expose in `preload.ts`
 declare interface Window {
-  ipcRenderer: import('electron').IpcRenderer
+  ipcRenderer: import('electron').IpcRenderer;
 }

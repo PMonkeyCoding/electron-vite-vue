@@ -5,5 +5,6 @@ export enum IpcEvents{
     PORT_SEND="port_send",
     PORT_RECV="port_recv",
     PORT_CLOSE="port_close",
-    PORT_GET="port_get"
+    PORT_GET="port_get",
+    PORT_SHOW="port_show"
   }
