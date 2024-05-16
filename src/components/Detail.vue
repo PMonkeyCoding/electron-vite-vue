@@ -2,7 +2,7 @@
 import {  ref, reactive, onMounted, onUnmounted } from 'vue';
 import { IpcEvents } from '../../electron/ipcEvents';
 import useIpcRendererOn from "../hook/useIpcRendererOn";
-import { Refresh, Upload, Download } from '@element-plus/icons-vue';
+import { Refresh, Plus, Finished, Upload, Download } from '@element-plus/icons-vue';
 import { exportExcel } from './export/export' //'./export/exportExcel'
 import { isFunction } from './export/utils'
 // import { ElMessage } from 'element-plus'
@@ -16,7 +16,7 @@ const currentRecv = ref('')
 //   msg.value = props.msg || ''
 // })
 const dialogVisible = ref(false)//弹窗是否可见
-const btnDisable = ref(false)//按钮是否可用
+const openBtnAble = ref(true)//按钮是否可用
 interface PortInfo {
   path: string;
   manufacturer: string | undefined;
@@ -65,7 +65,18 @@ function submitFileForm() {
       name:getFileName(tmpFile.name),
       showinfobar: false,
       showstatisticBar: false,
-      userInfo:'XR-TECH'
+      userInfo:'XR-TECH',
+      hook: {
+      cellMousedown:function(r,c,oldValue,newValue,isRefresh){
+        console.log('r',r);
+        console.log('c',c);
+        console.log('oldValue',oldValue);
+        console.log('newValue',newValue);
+        
+            row = c.r
+            column = c.c
+          }
+        }
     })
     upload.open = false
   }else{
@@ -113,17 +124,23 @@ const handleChange = (uploadFile) => {
 //                //  data: exportJson.sheets, //表格内容
 //                //  title: exportJson.info.name //表格标题
 //               }
-let row;
-let column;
+let row = 0;
+let column = 0;
 onMounted(() => {
   currentLuckySheet.create({
     container: 'luckysheet',
     showinfobar: false,
     showstatisticBar: false,
     lang:'zh',
+    allowEdit: true, // 是否允许前台编辑
     userInfo:'XR-TECH',
     hook: {
       cellMousedown:function(r,c,oldValue,newValue,isRefresh){
+        console.log('r',r);
+        console.log('c',c);
+        console.log('oldValue',oldValue);
+        console.log('newValue',newValue);
+        
             row = c.r
             column = c.c
           }
@@ -134,7 +151,7 @@ onMounted(() => {
 /**
  * 0未打开 1打开中 2已打开 3已关闭 
  */
- const current_state = ref(2)
+//  const current_state = ref(0)
 /**
  * 当前选择的端口
  */
@@ -145,43 +162,55 @@ const chosePort = ref(undefined)
 const portList = ref([])
 /**复制数据 */
 const copyData = (()=>{
-  currentLuckySheet.setcellvalue(row,column,currentLuckySheet.flowdata(), 'abc')
+  console.log('currentRecv',currentRecv);
+  
+  if(currentRecv==undefined ||currentRecv==null || currentRecv.value == null || currentRecv.value == undefined || currentRecv.value==''){
+    ElMessage.error("请先采集数据");
+    return
+  }
+  try {
+    currentLuckySheet.setcellvalue(row,column,currentLuckySheet.flowdata(),currentRecv.value)
       currentLuckySheet.refresh()
         ElMessage.success("填入成功");
-  // copyText(currentRecv.value).then(() => {
-  // }).catch(() => {
-  //     ElMessage.error("复制失败");
-  // })
+  } catch (error) {
+    console.log('error',error);
+    ElMessage.error("请先选择需填入数据的位置");
+  }
 })
 /**点击采集按钮 */
 const clickCollect = (data)=>{
   window.ipcRenderer.invoke(IpcEvents.PORT_SEND, data).then(()=>{
-    portList.value = []
-    btnDisable.value = false
+    // portList.value = []
   }).catch((error)=>{
-    btnDisable.value = false
+    // ElMessage.error("采集失败");
   })
 }
 onUnmounted(()=>{
-  if(current_state.value == 2){
-     clickClose()
+  // if(current_state.value == 2){
+    //  clickClose()
+  // }
+})
+let collectInterval
+onUnmounted(() => {
+  stopCollect()
+})
+const  stopCollect= (()=>{
+  if(collectInterval!=null && collectInterval!=undefined){
+    clearInterval(collectInterval)
   }
+})
+const  startCollect= (()=>{
+  // collectInterval = setInterval(()=>{
+  //   // clickCollect('[R]')
+  //   console.log('采集数据');
+  // }
+  // ,1000)
 })
 //用来收消息展示
 useIpcRendererOn(IpcEvents.PORT_SHOW, async (_, recv) => {
-  console.log('PORT_SHOW 收到的数据recv：', recv)
-  if(recv.includes('opening') && current_state.value == 1){
-      current_state.value = 2
-      ElMessage.info('串口已打开')
-      return
+  if(recv == '串口已打开'){
+      startCollect()
   }
-  if(recv == '串口已关闭'){
-      current_state.value = 3
-  }else if(recv == '串口打开成功' || recv == '串口已打开'){
-    current_state.value = 2
-  }
-  console.log('当前状态',current_state.value);
-  
   ElMessage.info(recv)
 })
 /**
@@ -213,76 +242,48 @@ useIpcRendererOn(IpcEvents.PORT_SHOW, async (_, recv) => {
 //用来监听渲染进程发送的信息
 useIpcRendererOn(IpcEvents.PORT_RECV, async (_, recv) => {
   console.log('PORT_RECV 收到的数据recv：', recv)
-  currentRecv.value = (parseInt(recv.substring(1,recv.length-1))/100).toFixed(2)
-  // copyText(currentRecv.value)
-  // const data = (parseInt(recv))/100.toFixed(2)
-//   ElMessageBox.confirm('当前采集到的数据为：'+ data, 
-//   '数据确认',{
-//     confirmButtonText: '复制',
-//     cancelButtonText:'关闭',
-//   }).then(()=>{
-//     copyText(data).then(() => {
-//       ElMessage.success("复制成功");
-//   }).catch(() => {
-//     ElMessage.error("复制失败");
-//   })
-//   })
+  currentRecv.value = (parseInt(recv)/100).toFixed(2)
 })
 const clickOpen = (() => {
-  //打开串口
-  if(!form.value.serialPort){
-    ElMessage.error('请确认已获取串口')
-    return
-  }
-  if(current_state.value == 1){
-    ElMessage.error('正在打开串口，请稍等..')
-    return
-  }
-  if(current_state.value == 2){
-    ElMessage.error('串口已打开')
-    return
-  }
-  console.log('123123 current_state',current_state.value);
+  console.log('form.value',form.value);
   
-  btnDisable.value = true
-  current_state.value = 1
+  if( form.value==undefined || form.value.serialPort == undefined || form.value.serialPort==null||form.value.serialPort==''){
+    ElMessage.error('请先选择串口')
+    return
+  }
+
+  openBtnAble.value = false
+  // current_state.value = 1
   window.ipcRenderer.invoke(IpcEvents.PORT_OPEN, JSON.stringify(form.value)).then(()=>{
     chosePort.value = form.value.serialPort
-    btnDisable.value = false
   }).catch(()=>{
     chosePort.value = undefined
     ElMessage.error('端口打开失败，请重试')
-    btnDisable.value = false
+    openBtnAble.value = true
   })
 })
 const clickClose = (()=>{
   //关闭串口
   chosePort.value = undefined
-  btnDisable.value = true
+  openBtnAble.value = true
   window.ipcRenderer.invoke(IpcEvents.PORT_CLOSE, '').then((ports)=>{
+    stopCollect()
     portList.value = []
-    btnDisable.value = false
   }).catch((e)=>{
     ElMessage.error('串口关闭失败，请重试')
-    btnDisable.value = false
+    openBtnAble.value = false
   })
 })
-const checkPort = ()=>{
-  getPortList()
-}
 const getPortList = ()=>{
   //获取串口列表
-  btnDisable.value = true
   window.ipcRenderer.invoke(IpcEvents.GET_PORTS_LIST, '').then((ports)=>{
     portList.value = JSON.parse(ports)
     if(portList.value.length>0){
       form.value.serialPort = portList.value[0].path
     }
-    btnDisable.value = false
   }).catch(()=>{
-    current_state.value = 0
+    // current_state.value = 0
     ElMessage.error('获取串口失败，请重试')
-    btnDisable.value = false
   })
 }
 
@@ -301,17 +302,19 @@ const form = ref({
       <el-header class="container-header">
         <el-row class="align-center">
             <el-text>请选择串口：</el-text>
-            <el-select style="width:120px;" v-model="form.serialPort" placeholder="请选择串口" @click="checkPort()">
+            <el-select style="width:120px;" v-model="form.serialPort" placeholder="请选择串口" @click="getPortList()">
                 <el-option v-for="(item, index) in portList" :key="index" :label="item.path"
                   :value="item.path"></el-option>
               </el-select>
-            <el-button type="success" :icon="Refresh" circle @click="getPortList()" :disabled="btnDisable"/>
+            <el-button type="success" :icon="Refresh" circle @click="getPortList()" :disabled="!openBtnAble"/>
             <!-- <el-text class="align-right" v-model="current_state" type="primary">当前状态：{{current_state}}</el-text> -->
        
-            <el-button type="primary" @click="clickOpen()" :disabled="btnDisable">打开</el-button>
-            <el-button type="danger" @click="clickClose()" :disabled="btnDisable">关闭</el-button>
-          <el-button type="warning"  @click="clickCollect('[R]')" :disabled="btnDisable">采集</el-button>
-          <el-text style="position: absolute;right:0px;" v-if="current_state == 2"   @click="copyData()">当前收到的数据：{{ currentRecv }} <el-icon><Plus /></el-icon></el-text>
+            <el-button type="primary" @click="clickOpen()" :disabled="!openBtnAble">打开</el-button>
+            <el-button type="danger" @click="clickClose()" :disabled="openBtnAble">关闭</el-button>
+          <el-button type="warning"  @click="clickCollect('[R]')" :disabled="openBtnAble">采集</el-button>
+          <el-text style="position: absolute;right:0px;" v-if="currentRecv != undefined && currentRecv!=''"   @click="copyData()">当前收到的数据：<span style="margin: 0px 8px 0px 1px; ">{{ currentRecv }} </span>
+            <el-button type="success" :icon="Finished" >填入</el-button>
+          </el-text>
            </el-row>
       </el-header>
       <el-main class="container-center">
@@ -327,7 +330,7 @@ const form = ref({
                   :value="item.key" style="font-size:12px"></el-option>
               </el-select>
             </el-col>
-            <el-col :span=4 style="margin-left:10px" class="align-center"><el-button type="warning" :disabled="btnDisable">导出</el-button></el-col>
+            <el-col :span=4 style="margin-left:10px" class="align-center"><el-button type="warning" :disabled="openBtnAble">导出</el-button></el-col>
         </el-row> -->
         <el-button type="primary" @click="importFile" :icon="Upload">导入标准文件</el-button>
         <el-button type="primary" @click="ExportFile" :icon="Download">导出文件</el-button>

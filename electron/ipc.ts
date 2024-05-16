@@ -6,9 +6,7 @@ import { SerialPort  } from 'serialport';
 const registerIPCEvent = async():Promise<void>=>{
   //ipc事件注册函数
   var serialPort : SerialPort
-  console.log('registerIPCEvent')
   ipcMain.handle(IpcEvents.GET_PORTS_LIST,async (e,data)=>{
-    console.log('hello',data);
     return await SerialPort.list().then((ports) => {
       return JSON.stringify(ports)
     }).catch(()=>{
@@ -16,73 +14,63 @@ const registerIPCEvent = async():Promise<void>=>{
     })
   })
 	ipcMain.handle(IpcEvents.PORT_SEND,async (e, args) => {
-    console.log('send  yyy',args)
-    console.log('port',serialPort);
     if(serialPort == undefined){
-      e.sender.send(IpcEvents.PORT_SHOW,'请先打开设备')
+      // e.sender.send(IpcEvents.PORT_SHOW,'请先打开设备')
     }else{
       serialPort.write(args)
     }
   })
   ipcMain.handle(IpcEvents.PORT_CLOSE,async (e)=>{
-    console.log('close port',serialPort)
     if(serialPort!=undefined){
-    serialPort.close((err) => {
-      if (err) {
-        e.sender.send(IpcEvents.PORT_SHOW,'关闭串口时发生错误,'+err.message)
-      } else {
-        e.sender.send(IpcEvents.PORT_SHOW,'串口已关闭')
-      }
-    });
-  }
+      serialPort.close((err) => {
+          if (err) {
+            if(err.message.includes('closing')){
+              e.sender.send(IpcEvents.PORT_SHOW,'串口已关闭')
+            }else{
+                e.sender.send(IpcEvents.PORT_SHOW,'关闭串口时发生错误,'+err.message)
+            }
+        } else {
+          e.sender.send(IpcEvents.PORT_SHOW,'串口已关闭')
+        }
+      });
+    }
   })
   // 打开某个串口
   ipcMain.handle(IpcEvents.PORT_OPEN, async (event, args) => {
     const portInfo = JSON.parse(args)
-    console.log('serialPort',serialPort);
-if(serialPort!=undefined){
-    if(serialPort.isOpen){
-      if(serialPort.path == portInfo.serialPort){
-        event.sender.send(IpcEvents.PORT_SHOW,'串口已打开')
-        return
+    if(serialPort!=undefined){
+      if(serialPort.isOpen){
+        console.log('关闭来了');
+        serialPort.close()
       }
     }
-    serialPort.close((err) => {
-      serialPort = new SerialPort(
-        {
-            path: portInfo.serialPort,
-            baudRate: portInfo.baudRate,
-        })
-        serialPort.open((err)=> {
-          if (err) {
-            event.sender.send(IpcEvents.PORT_SHOW,'打开串口时发生错误,'+err.message)
-          } else {
-            event.sender.send(IpcEvents.PORT_SHOW,'串口打开成功')
-          }
-        });
-        serialPort.on('data',(data)=>{
-          event.sender.send(IpcEvents.PORT_RECV,data.toString('utf-8'))
-          console.log('get Data:', data.toString('utf-8'))
-      })
-    });
-  }else{
     serialPort = new SerialPort(
       {
           path: portInfo.serialPort,
           baudRate: portInfo.baudRate,
       })
-      serialPort.open((err)=> {
-        if (err) {
-          event.sender.send(IpcEvents.PORT_SHOW,'打开串口时发生错误,'+err.message)
-        } else {
-          event.sender.send(IpcEvents.PORT_SHOW,'串口打开成功')
-        }
-      });
+      console.log('当前serialPort',serialPort);
+      
+      if(serialPort.isOpen){//当前串口已经有占用对象的串口打开
+        event.sender.send(IpcEvents.PORT_SHOW,'串口已打开')
+      }else{
+        serialPort.open(
+          (err)=> {
+          if (err) {
+            if(err.message.includes('opening')){
+              event.sender.send(IpcEvents.PORT_SHOW,'串口已打开')
+            }else{
+                event.sender.send(IpcEvents.PORT_SHOW,'打开串口时发生错误,'+err.message)
+            }
+          } else {
+            event.sender.send(IpcEvents.PORT_SHOW,'串口打开成功')
+          }
+        });
+      }
       serialPort.on('data',(data)=>{
+        console.log('监听 Data:', data.toString('utf-8'))
         event.sender.send(IpcEvents.PORT_RECV,data.toString('utf-8'))
-        console.log('get Data:', data.toString('utf-8'))
     })
-    }
 })
 }
 export default {registerIPCEvent}
